@@ -227,7 +227,7 @@ HMF-m6A/
 - DNABERT3: [https://github.com/Zhihan1996/DNABERT_3](https://github.com/Zhihan1996/DNABERT_3)
 - Trained models and data: Zenodo repository
 
-# HMF-m6A: 层级多模态 m6A RNA 甲基化预测器
+# HMF-m6A: 层次化多模态 m6A RNA 甲基化预测器
 
 ## 1. 环境配置
 
