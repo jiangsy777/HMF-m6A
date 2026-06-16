@@ -1,5 +1,6 @@
 # HMF-m6A
-A Hierarchical Multimodal Framework for General RNA m6A Prediction via Context-Aware Large Language Model
+A Hierarchical Multimodal Framework for General RNA m6A Prediction via Context-Aware Large Language Model.
+
 Please download the complete datasets, models, and codes from Zenodo (https://doi.org/10.5281/zenodo.20534798) before running the following commands.
 
 # HMF-m6A: Hierarchical Multimodal m6A RNA Methylation Predictor
