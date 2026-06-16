@@ -1,17 +1,3 @@
-"""
-m6A 修饰预测模型 HMF — 主程序
-================================
-两个入口:
-  1. main_train()  — 从头训练全部模型 (融合主干 → 特征提取 → 基序分组 → 基序分类器)
-  2. main_predict() — 对 test_motif_results 文件夹所有 CSV 预测 (自动基序分组 → 对应分类器)
-
-用法:
-  conda activate m6A
-  python main.py train                    # 从头训练全部模型
-  python main.py predict                  # 预测 test_motif_results/ 下所有 CSV
-  python main.py predict --input xx.csv   # 预测单个文件
-"""
-
 import os
 import sys
 import json
@@ -40,7 +26,7 @@ from motif_grouper import extract_5mer, analyze_motifs_by_positive, group_data_b
 
 
 # ============================================================
-#  全局常量
+#  Global constants
 # ============================================================
 NUCLEOTIDE_TO_IDX = {'A': 0, 'C': 1, 'G': 2, 'T': 3, 'U': 3, 'N': 4}
 EIIP_DICT = {'A': 0.1260, 'C': 0.1340, 'G': 0.0806, 'T': 0.1335, 'U': 0.1335, 'N': 0.0}
@@ -49,7 +35,7 @@ STRUCTURE_TO_IDX = {'.': 0, '(': 1, ')': 2, 'N': 3}
 
 
 # ============================================================
-#  种子固定 — 保证全流程完全可复现
+#  Seed fixing - ensure full reproducibility
 # ============================================================
 SEED = 42
 
@@ -68,11 +54,11 @@ def fix_all_seeds(seed: int = SEED):
 def check_gpu():
     if not torch.cuda.is_available():
         print("=" * 70)
-        print("  错误: 未检测到 GPU / CUDA 不可用!")
-        print("  本程序必须使用 GPU 运行，请检查:")
-        print("    1. nvidia-smi 是否正常")
-        print("    2. CUDA 驱动是否安装")
-        print("    3. PyTorch CUDA 版本是否匹配")
+        print("  Error: GPU / CUDA not available!")
+        print("  This program requires GPU. Please check:")
+        print("    1. 1. nvidia-smi works")
+        print("    2. 2. CUDA driver installed")
+        print("    3. 3. PyTorch CUDA version matches")
         print("=" * 70)
         sys.exit(1)
     print(f"  GPU: {torch.cuda.get_device_name(0)}")
@@ -81,7 +67,7 @@ def check_gpu():
 
 
 # ============================================================
-#  特征计算工具函数
+#  Feature computation utilities
 # ============================================================
 def get_ncp_features(nuc: str) -> list:
     nuc = nuc.upper()
@@ -178,7 +164,7 @@ def normalize_sequence(seq: str, target_len: int = 201) -> str:
 
 
 # ============================================================
-#  MotifClassifier — 基序专属分类器
+#  MotifClassifier — Motif-specific classifier
 # ============================================================
 class MotifClassifier(nn.Module):
     def __init__(self, input_dim: int = 1536, hidden_dims: list = None,
@@ -344,7 +330,7 @@ def collate_fn_predict(batch):
 
 
 # ============================================================
-#  训练辅助函数
+#  Training utilities
 # ============================================================
 def train_epoch_fusion(model, dataloader, optimizer, scheduler, scaler, device,
                        alpha_recon, epoch):
@@ -581,7 +567,7 @@ def extract_features_from_model(model, dataloader, device):
 
 
 # ============================================================
-#  训练主函数 — 从头训练全部模型
+#   — Train all models from scratch
 # ============================================================
 def main_train(
     data_path: str = "./all_train_samples.tsv",
@@ -598,12 +584,12 @@ def main_train(
     motif_threshold_ratio: float = 0.015,
 ):
     """
-    从头训练全部模型 (除 DNABERT3 原始权重外):
-      Step 1: 训练多模态融合主干 (CNN + 稀疏门控 + 重构解码器)
-      Step 2: 用融合主干提取 1536 维特征
-      Step 3: 按正样本基序频次分组
-      Step 4: 为每个基序组训练专属 MLP 分类器
-    全流程固定种子, 所有模型和结果均保存, 保证完全可复现.
+    Train all models from scratch ( DNABERT3 ):
+      Step 1: Train multimodal fusion trunk (CNN + sparse gating + reconstruction decoder)
+      Step 2: Extract 1536-dim features using fusion trunk
+      Step 3: Group by positive sample motif frequency
+      Step 4: Train motif-specific MLP classifier for each group
+    Fixed seeds throughout; all models and results saved for full reproducibility.
     """
     t0 = time.time()
     fix_all_seeds(seed)
@@ -647,23 +633,23 @@ def main_train(
     }
 
     print("=" * 70)
-    print("  m6A HMF — 完整训练流程 (从头训练)")
+    print("  m6A HMF - Full Training Pipeline")
     print("=" * 70)
     print(f"  Device: {device}, Seed: {seed}")
     print(f"  Output: {output_dir}")
 
-    # ---- 加载数据 ----
-    print("\n[Step 0] 加载训练数据...")
+    # ---- Load data ----
+    print("\n[Step 0] Loading training data...")
     if data_path.endswith('.tsv'):
         df = pd.read_csv(data_path, sep='\t')
     else:
         df = pd.read_csv(data_path)
-    print(f"  数据集: {len(df)} 样本 (正:{(df['label'] == 1).sum()} / 负:{(df['label'] == 0).sum()})")
+    print(f"  Dataset: {len(df)} samples (pos:{(df['label'] == 1).sum()} / neg:{(df['label'] == 0).sum()})")
 
     # ================================================================
-    #  Step 1: 训练多模态融合主干
+    #  Step 1: Fusion trunk
     # ================================================================
-    print(f"\n[Step 1] 训练多模态融合主干...")
+    print(f"\n[Step 1] Training multimodal fusion trunk...")
     t1 = time.time()
 
     fix_all_seeds(seed)
@@ -674,9 +660,9 @@ def main_train(
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    print("  创建训练数据集...")
+    print("  Creating training dataset...")
     train_dataset = M6AFusionDataset(train_df, tokenizer, SEQ_LEN, MAX_LEN)
-    print("  创建验证数据集...")
+    print("  Creating validation dataset...")
     val_dataset = M6AFusionDataset(val_df, tokenizer, SEQ_LEN, MAX_LEN)
 
     train_loader = DataLoader(train_dataset, batch_size=fusion_batch_size, shuffle=True,
@@ -792,15 +778,15 @@ def main_train(
         'best_auc': float(best_auc), 'elapsed_sec': round(t1_elapsed, 1),
         'epoch_logs': epoch_logs
     }
-    print(f"\n  Step 1 完成! Best val AUC: {best_auc:.4f}, 耗时: {t1_elapsed:.1f}s")
+    print(f"\n  Step 1 done! Best val AUC: {best_auc:.4f}, elapsed: {t1_elapsed:.1f}s")
 
     del train_dataset, val_dataset, train_loader, val_loader
     torch.cuda.empty_cache()
 
     # ================================================================
-    #  Step 2: 提取 1536 维特征
+    #  Step 2:  1536 
     # ================================================================
-    print(f"\n[Step 2] 提取 1536 维特征...")
+    print(f"\n[Step 2] Extracting 1536-dim features...")
     t2 = time.time()
 
     ckpt = torch.load(trunk_path, map_location=device, weights_only=False)
@@ -824,7 +810,7 @@ def main_train(
     for param in model.bert_extractor.parameters():
         param.requires_grad = False
     model.load_fusion_trunk_state(ckpt['fusion_trunk'])
-    print(f"  融合主干加载完成 (epoch={ckpt.get('epoch', '?')}, AUC={ckpt.get('best_auc', '?')})")
+    print(f"  Fusion trunk loaded (epoch={ckpt.get('epoch', '?')}, AUC={ckpt.get('best_auc', '?')})")
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     dataset = M6AFusionDataset(df, tokenizer, SEQ_LEN, MAX_LEN)
@@ -832,7 +818,7 @@ def main_train(
                             collate_fn=collate_fn, num_workers=0, pin_memory=True)
 
     features, labels = extract_features_from_model(model, dataloader, device)
-    print(f"  特征矩阵: {features.shape}")
+    print(f"  Feature matrix: {features.shape}")
 
     motifs = []
     sequences = []
@@ -844,22 +830,22 @@ def main_train(
     np.savez(features_path,
              features=features, labels=labels,
              motifs=np.array(motifs), sequences=np.array(sequences))
-    print(f"  特征已保存: {features_path}")
+    print(f"  Features saved: {features_path}")
 
     t2_elapsed = time.time() - t2
     training_log['steps']['step2_feature_extraction'] = {
         'status': 'done', 'path': features_path,
         'shape': list(features.shape), 'elapsed_sec': round(t2_elapsed, 1)
     }
-    print(f"  Step 2 完成! 耗时: {t2_elapsed:.1f}s")
+    print(f"  Step 2 done! elapsed: {t2_elapsed:.1f}s")
 
     del dataset, dataloader
     torch.cuda.empty_cache()
 
     # ================================================================
-    #  Step 3: 按基序分组
+    #  Step 3: Group by motif
     # ================================================================
-    print(f"\n[Step 3] 按正样本基序频次分组 (threshold = num_positive * {motif_threshold_ratio})...")
+    print(f"\n[Step 3] Grouping by positive sample motif frequency (threshold = num_positive * {motif_threshold_ratio})...")
     t3 = time.time()
 
     df_with_motif, major_motifs, has_others = analyze_motifs_by_positive(
@@ -889,12 +875,12 @@ def main_train(
         'major_motifs': major_motifs, 'has_others': has_others,
         'elapsed_sec': round(t3_elapsed, 1)
     }
-    print(f"  Step 3 完成! {len(group_names)} 个基序组, 耗时: {t3_elapsed:.1f}s")
+    print(f"  Step 3 done! {len(group_names)} motif groups, elapsed: {t3_elapsed:.1f}s")
 
     # ================================================================
-    #  Step 4: 训练基序专属分类器
+    #  Step 4: Motif-specific classifier
     # ================================================================
-    print(f"\n[Step 4] 训练基序专属分类器...")
+    print(f"\n[Step 4] Motif-specific classifier...")
     t4 = time.time()
 
     INPUT_DIM = 1536
@@ -906,21 +892,21 @@ def main_train(
 
     for group_name in group_names:
         print(f"\n  {'-'*50}")
-        print(f"  基序组: {group_name}")
+        print(f"  Motif: {group_name}")
         print(f"  {'-'*50}")
 
         indices = motif_to_indices.get(group_name, [])
         if len(indices) == 0:
-            print(f"  跳过: 无样本")
+            print(f"  Skip: no samples")
             continue
 
         group_labels = labels[indices]
         pos_count = int((group_labels == 1).sum())
         neg_count = int((group_labels == 0).sum())
-        print(f"  样本数: {len(indices)} (正:{pos_count} / 负:{neg_count})")
+        print(f"  Samples: {len(indices)} (pos:{pos_count} / neg:{neg_count})")
 
         if pos_count < 2 or neg_count < 2:
-            print(f"  跳过: 正/负样本不足 (需各>=2)")
+            print(f"  : pos/neg (>=2)")
             continue
 
         indices_arr = np.array(indices)
@@ -1031,35 +1017,35 @@ def main_train(
                 'auc': info['auc'], 'acc': info['acc'], 'f1': info['f1']
             })
         pd.DataFrame(rows).to_csv(summary_path, index=False)
-        print(f"\n  分类器性能汇总已保存: {summary_path}")
+        print(f"\n  Classifier summary saved: {summary_path}")
 
     total_elapsed = time.time() - t0
     print("\n" + "=" * 70)
-    print("  训练完成!")
-    print(f"  总耗时: {total_elapsed:.1f}s ({total_elapsed/60:.1f}min)")
-    print(f"  融合主干: {trunk_path}")
-    print(f"  特征文件: {features_path}")
-    print(f"  基序分组: {group_dir}")
-    print(f"  分类器目录: {clf_dir}")
-    print(f"  路由映射: {routing_map_path}")
-    print(f"  训练日志: {training_log_path}")
+    print("  Training complete!")
+    print(f"  elapsed: {total_elapsed:.1f}s ({total_elapsed/60:.1f}min)")
+    print(f"  Fusion trunk: {trunk_path}")
+    print(f"  Features file: {features_path}")
+    print(f"  Motif groups: {group_dir}")
+    print(f"  Classifiers dir: {clf_dir}")
+    print(f"  Routing map: {routing_map_path}")
+    print(f"  Training log: {training_log_path}")
     if clf_results:
-        print(f"\n  各组性能汇总:")
-        print(f"  {'基序':<12} {'样本数':>8} {'正/负':>10} {'AUC':>8} {'ACC':>8} {'F1':>8}")
+        print(f"\n  Per-group performance summary:")
+        print(f"  {'Motif':<12} {'Samples':>8} {'pos/neg':>10} {'AUC':>8} {'ACC':>8} {'F1':>8}")
         print(f"  {'-'*58}")
         for name, info in sorted(clf_results.items()):
             print(f"  {name:<12} {info['n_samples']:>8} {info['pos']:>4}/{info['neg']:<4} "
                   f"{info['auc']:>8.4f} {info['acc']:>8.4f} {info['f1']:>8.4f}")
-        print(f"\n  平均 AUC: {avg_auc:.4f}")
-        print(f"  平均 ACC: {avg_acc:.4f}")
-        print(f"  平均 F1:  {avg_f1:.4f}")
+        print(f"\n  Mean AUC: {avg_auc:.4f}")
+        print(f"  Mean ACC: {avg_acc:.4f}")
+        print(f"  Mean F1:  {avg_f1:.4f}")
     print("=" * 70)
 
     return training_log
 
 
 # ============================================================
-#  预测主函数 — 自动预测 test_motif_results 下所有 CSV
+#  Main prediction function — Predicting test_motif_results  CSV
 # ============================================================
 def main_predict(
     test_dir: str = "./test_motif_results",
@@ -1070,12 +1056,12 @@ def main_predict(
     single_input: str = None,
 ):
     """
-    对 test_motif_results 文件夹下所有 CSV 逐一预测:
-      1. 加载融合模型 + 基序分类器
-      2. 对每个 CSV: 提取 1536 维特征 → 按 5-mer 基序分组 → 对应分类器预测
-      3. 保存每个 CSV 的预测结果 + 汇总评估
+     test_motif_results File CSV Predicting:
+      1.  + Motif
+      2.  CSV:  1536  →  5-mer Motif groups → Predicting
+      3.  CSV Predicting + Evaluation
 
-    也可通过 single_input 指定单个文件预测.
+     single_input FilePredicting.
     """
     fix_all_seeds(seed)
     t0 = time.time()
@@ -1092,20 +1078,20 @@ def main_predict(
     routing_map_path = os.path.join(clf_dir, "routing_map.json")
 
     print("=" * 70)
-    print("  m6A HMF — 预测流程")
+    print("  m6A HMF — Prediction pipeline")
     print("=" * 70)
     print(f"  Device: {device}, Seed: {seed}")
 
-    # ---- 1. 加载融合模型 ----
-    print("\n[Step 1] 加载融合模型...")
+    # ---- 1.  ----
+    print("\n[Step 1] Loading fusion model...")
     if not os.path.exists(trunk_path):
-        print(f"  错误: 融合主干不存在 {trunk_path}")
-        print(f"  请先运行 main_train() 训练模型")
+        print(f"  : Fusion trunk {trunk_path}")
+        print(f"  Please run main_train() first")
         return None
 
     ckpt = torch.load(trunk_path, map_location=device, weights_only=False)
     model_config = ckpt['config']
-    print(f"  训练时 Best AUC: {ckpt.get('best_auc', 'N/A')}")
+    print(f"  Training Best AUC: {ckpt.get('best_auc', 'N/A')}")
 
     model = MultimodalFusionModel(
         model_name=dnabert_path,
@@ -1125,12 +1111,12 @@ def main_predict(
     for param in model.bert_extractor.parameters():
         param.requires_grad = False
     model.load_fusion_trunk_state(ckpt['fusion_trunk'])
-    print("  融合主干加载完成")
+    print("  Fusion trunk loaded")
 
-    # ---- 2. 加载基序分类器 ----
-    print("\n[Step 2] 加载基序分类器...")
+    # ---- 2. Motif ----
+    print("\n[Step 2] Motif...")
     if not os.path.exists(routing_map_path):
-        print(f"  错误: 路由映射不存在 {routing_map_path}")
+        print(f"  : Routing map {routing_map_path}")
         return None
 
     with open(routing_map_path, 'r') as f:
@@ -1150,7 +1136,7 @@ def main_predict(
             if os.path.exists(alt_path):
                 weight_path_fixed = alt_path
             else:
-                print(f"  警告: 分类器权重不存在, 跳过 {motif_name}")
+                print(f"  Warning: classifier weights not found, skipping {motif_name}")
                 continue
 
         clf_ckpt = torch.load(weight_path_fixed, map_location=device, weights_only=False)
@@ -1162,25 +1148,25 @@ def main_predict(
         clf.eval()
         classifiers[motif_name] = clf
 
-    print(f"  已加载 {len(classifiers)} 个分类器: {list(classifiers.keys())}")
+    print(f"  Loaded {len(classifiers)} classifiers: {list(classifiers.keys())}")
     major_motifs = set(routing.keys())
 
-    # ---- 3. 确定待预测文件列表 ----
+    # ---- 3. Determine files to predict ----
     if single_input:
         csv_files = [single_input]
     else:
         csv_files = sorted(glob.glob(os.path.join(test_dir, "test_*.csv")))
         if not csv_files:
-            print(f"  错误: {test_dir} 下没有找到 test_*.csv 文件")
+            print(f"  : {test_dir}  test_*.csv File")
             return None
 
-    print(f"\n[Step 3] 待预测文件: {len(csv_files)} 个")
+    print(f"\n[Step 3] Files to predict: {len(csv_files)} ")
     for f in csv_files:
         print(f"    {os.path.basename(f)}")
 
     tokenizer = AutoTokenizer.from_pretrained(dnabert_path)
 
-    # ---- 4. 逐文件预测 ----
+    # ---- 4. Per-file prediction ----
     all_file_results = []
     global_true_labels = []
     global_all_probs = []
@@ -1189,7 +1175,7 @@ def main_predict(
     for file_idx, csv_path in enumerate(csv_files):
         file_name = os.path.basename(csv_path)
         print(f"\n{'='*70}")
-        print(f"  [{file_idx+1}/{len(csv_files)}] 预测: {file_name}")
+        print(f"  [{file_idx+1}/{len(csv_files)}] Predicting: {file_name}")
         print(f"{'='*70}")
 
         if csv_path.endswith('.tsv'):
@@ -1199,21 +1185,21 @@ def main_predict(
 
         text_col = 'text' if 'text' in df.columns else df.columns[0]
         has_label = 'label' in df.columns
-        print(f"  样本数: {len(df)}, 标签列: {'有' if has_label else '无'}")
+        print(f"  Samples: {len(df)}, labels: {'' if has_label else ''}")
 
-        # 提取基序并分组
+        # Motif
         df['motif_5mer'] = df[text_col].apply(lambda x: extract_5mer(str(x).strip()))
         df['motif_group'] = df['motif_5mer'].apply(
             lambda m: m if m in major_motifs else default_group
         )
 
         group_counts = df['motif_group'].value_counts()
-        print(f"  基序分组:")
+        print(f"  Motif groups:")
         for g, c in group_counts.items():
             print(f"    {g}: {c}")
 
-        # 提取 1536 维特征
-        print(f"  提取 1536 维特征...")
+        #  1536 
+        print(f"  Extracting 1536-dim features...")
         pred_df = df[[text_col]].copy()
         if has_label:
             pred_df['label'] = df['label']
@@ -1225,13 +1211,13 @@ def main_predict(
                                 pin_memory=True)
 
         all_features, feat_labels = extract_features_from_model(model, dataloader, device)
-        print(f"  特征矩阵: {all_features.shape}")
+        print(f"  Feature matrix: {all_features.shape}")
 
         del dataset, dataloader
         torch.cuda.empty_cache()
 
-        # 按基序分组预测
-        print(f"  按基序分组预测...")
+        # Group by motifPredicting
+        print(f"  Group by motifPredicting...")
         all_probs = np.zeros(len(df))
         all_preds = np.zeros(len(df), dtype=int)
 
@@ -1257,10 +1243,10 @@ def main_predict(
             all_preds[indices] = clf_preds
 
             n_pos_pred = int(clf_preds.sum())
-            print(f"    [{group_name}] {len(indices)} 样本, 预测正例: {n_pos_pred}, "
-                  f"平均概率: {clf_probs.mean():.4f}")
+            print(f"    [{group_name}] {len(indices)} , PredictingposExample: {n_pos_pred}, "
+                  f"Mean: {clf_probs.mean():.4f}")
 
-        # 保存预测结果
+        # Predicting
         result_df = df.copy()
         result_df['m6A_prob'] = all_probs
         result_df['m6A_pred'] = all_preds
@@ -1269,9 +1255,9 @@ def main_predict(
         out_name = file_name.replace('test_', 'pred_').replace('.csv', '_predictions.csv')
         out_path = os.path.join(pred_dir, out_name)
         result_df.to_csv(out_path, index=False)
-        print(f"  预测结果已保存: {out_path}")
+        print(f"  Predicting: {out_path}")
 
-        # 评估
+        # Evaluation
         file_result = {'file': file_name, 'n_samples': len(df)}
         if has_label:
             true_labels = df['label'].values.astype(int)
@@ -1287,7 +1273,7 @@ def main_predict(
             cm = confusion_matrix(true_labels, all_preds)
             mcc = matthews_corrcoef(true_labels, all_preds)
 
-            print(f"\n  === 评估结果 ===")
+            print(f"\n  === Evaluation ===")
             print(f"  AUC:       {auc:.4f}")
             print(f"  Accuracy:  {acc:.4f}")
             print(f"  Precision: {precision:.4f}")
@@ -1312,20 +1298,20 @@ def main_predict(
 
         all_file_results.append(file_result)
 
-    # ---- 5. 汇总 ----
+    # ---- 5. Summary ----
     print(f"\n{'='*70}")
-    print("  全部文件预测完成!")
+    print("  FilePredicting!")
     print(f"{'='*70}")
 
     if all_file_results:
         summary_path = os.path.join(pred_dir, "all_predictions_summary.csv")
         pd.DataFrame(all_file_results).to_csv(summary_path, index=False)
-        print(f"  汇总结果已保存: {summary_path}")
+        print(f"  : {summary_path}")
 
         has_metrics = [r for r in all_file_results if 'auc' in r]
         if has_metrics:
-            print(f"\n  === 各文件评估汇总 ===")
-            print(f"  {'文件':<25} {'N':>6} {'AUC':>7} {'Acc':>7} {'F1':>7}")
+            print(f"\n  === FileEvaluation ===")
+            print(f"  {'File':<25} {'N':>6} {'AUC':>7} {'Acc':>7} {'F1':>7}")
             print(f"  {'-'*55}")
             for r in has_metrics:
                 print(f"  {r['file']:<25} {r['n_samples']:>6} {r['auc']:>7.4f} "
@@ -1334,9 +1320,9 @@ def main_predict(
             mean_auc = np.mean([r['auc'] for r in has_metrics])
             mean_acc = np.mean([r['acc'] for r in has_metrics])
             mean_f1 = np.mean([r['f1'] for r in has_metrics])
-            print(f"\n  平均 AUC: {mean_auc:.4f}")
-            print(f"  平均 ACC: {mean_acc:.4f}")
-            print(f"  平均 F1:  {mean_f1:.4f}")
+            print(f"\n  Mean AUC: {mean_auc:.4f}")
+            print(f"  Mean ACC: {mean_acc:.4f}")
+            print(f"  Mean F1:  {mean_f1:.4f}")
 
         if global_true_labels:
             g_labels = np.concatenate(global_true_labels)
@@ -1353,8 +1339,8 @@ def main_predict(
             g_cm = confusion_matrix(g_labels, g_preds)
             g_mcc = matthews_corrcoef(g_labels, g_preds)
 
-            print(f"\n  === 全局评估结果（基于全部序列整体计算）===")
-            print(f"  总样本数:  {len(g_labels)}")
+            print(f"\n  === Evaluation（）===")
+            print(f"  Samples:  {len(g_labels)}")
             print(f"  AUC:       {g_auc:.4f}")
             print(f"  Accuracy:  {g_acc:.4f}")
             print(f"  Precision: {g_precision:.4f}")
@@ -1377,25 +1363,25 @@ def main_predict(
 
             summary_path = os.path.join(pred_dir, "all_predictions_summary.csv")
             pd.DataFrame(all_file_results).to_csv(summary_path, index=False)
-            print(f"\n  全局评估结果已追加到汇总文件: {summary_path}")
+            print(f"\n  EvaluationFile: {summary_path}")
 
     total_elapsed = time.time() - t0
-    print(f"\n  预测总耗时: {total_elapsed:.1f}s ({total_elapsed/60:.1f}min)")
+    print(f"\n  Predictingelapsed: {total_elapsed:.1f}s ({total_elapsed/60:.1f}min)")
     print("=" * 70)
 
     return all_file_results
 
 
 # ============================================================
-#  命令行入口
+#  
 # ============================================================
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("用法:")
+        print("Usage:")
         print("  conda activate m6A")
-        print("  python main.py train                  # 从头训练全部模型")
-        print("  python main.py predict                # 预测 test_motif_results/ 下所有 CSV")
-        print("  python main.py predict --input xx.csv # 预测单个文件")
+        print("  python main.py train                  # Train all models from scratch")
+        print("  python main.py predict                # Predict all CSVs in test_motif_results/")
+        print("  python main.py predict --input xx.csv # Predict a single file")
         sys.exit(1)
 
     command = sys.argv[1].lower()
@@ -1421,6 +1407,6 @@ if __name__ == "__main__":
         main_predict(**kwargs)
 
     else:
-        print(f"未知命令: {command}")
-        print("可用命令: train, predict")
+        print(f": {command}")
+        print(": train, predict")
         sys.exit(1)

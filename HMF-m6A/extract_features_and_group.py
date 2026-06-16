@@ -1,10 +1,3 @@
-"""
-HMF 特征提取与基序分组脚本
-1. 加载 DNABERT (冻结) + 训练好的融合主干权重
-2. 推理得到 1536 维 F_combined，保存为 .npz
-3. 按正样本基序频次分组，保存各组 train.tsv / val.tsv
-"""
-
 import os
 import json
 import numpy as np

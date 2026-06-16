@@ -1,6 +1,5 @@
-#!/bin/bash
-# m6A HMF Web 应用启动脚本
-# 用法: bash run_web.sh
+# m6A HMF Web Application Launch Script
+# Usage: bash run_web.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"

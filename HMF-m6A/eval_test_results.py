@@ -1,9 +1,3 @@
-"""
-对 test_motif_results 验证集用训练好的融合模型+基序分类器预测,
-绘制混淆矩阵和 ROC-AUC 曲线, 保存作图数据和图片.
-不修改任何现有文件.
-"""
-
 import os
 import json
 import random

@@ -1,8 +1,3 @@
-"""
-HMF 多模态融合模型架构模块
-包含：ElementLinear、稀疏门控、CNN分支、重构解码器、完整模型
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +6,7 @@ from transformers import AutoModel
 
 
 class ElementLinear(nn.Module):
-    """逐元素仿射变换: y = x * w + b"""
+    """Element-wise affine transform: y = x * w + b"""
     def __init__(self, dim: int):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(dim))
@@ -30,7 +25,7 @@ class ElementLinear(nn.Module):
 
 
 class SparseModalGate(nn.Module):
-    """稀疏模态门控: G = Sigmoid(ElementLinear(V))"""
+    """Sparse modal gating: G = Sigmoid(ElementLinear(V))"""
     def __init__(self, embedding_dim: int = 768):
         super().__init__()
         self.element_linear = ElementLinear(embedding_dim)
@@ -43,7 +38,7 @@ class SparseModalGate(nn.Module):
 
 
 class PhysicochemicalBranch(nn.Module):
-    """理化特征CNN分支: 29D -> CNN -> 768D"""
+    """Physicochemical CNN branch: 29D -> CNN -> 768D"""
     def __init__(self, input_dim: int = 29, channels: list = None,
                  kernel_size: int = 3, output_dim: int = 768):
         super().__init__()
@@ -79,7 +74,7 @@ class PhysicochemicalBranch(nn.Module):
 
 
 class StructureBranch(nn.Module):
-    """二级结构CNN分支: 8D -> CNN -> 768D"""
+    """Secondary structure CNN branch: 8D -> CNN -> 768D"""
     def __init__(self, input_dim: int = 8, channels: list = None,
                  kernel_size: int = 3, output_dim: int = 768):
         super().__init__()
@@ -115,7 +110,7 @@ class StructureBranch(nn.Module):
 
 
 class ReconstructionDecoder(nn.Module):
-    """重构解码器: 从768维还原为高维特征图"""
+    """Reconstruction decoder: restore from 768-dim to high-dim feature map"""
     def __init__(self, input_dim: int = 768, target_channels: list = None,
                  target_length: int = 25):
         super().__init__()
@@ -143,7 +138,7 @@ class ReconstructionDecoder(nn.Module):
 
 
 class DNABERTFeatureExtractor(nn.Module):
-    """DNABERT特征提取器（冻结模式）"""
+    """DNABERT feature extractor (frozen)"""
     def __init__(self, model_name: str, freeze: bool = True):
         super().__init__()
         self.bert = AutoModel.from_pretrained(model_name)
@@ -183,7 +178,7 @@ class GlobalClassifier(nn.Module):
 
 
 class MultimodalFusionModel(nn.Module):
-    """HMF 多模态融合模型（主干网络）"""
+    """HMF Multimodal Fusion Model (trunk network)"""
     
     def __init__(self, config=None, **kwargs):
         super().__init__()
@@ -301,19 +296,19 @@ class MultimodalFusionModel(nn.Module):
 
 if __name__ == "__main__":
     print("="*60)
-    print("  模型架构模块测试")
+    print("  Model architecture module test")
     print("="*60)
     device = torch.device('cpu')
     el = ElementLinear(dim=10)
     x = torch.randn(2, 10)
     y = el(x)
     assert y.shape == (2, 10)
-    print(f"  [OK] ElementLinear输出形状: {y.shape}, 稀疏度: {el.get_sparsity():.4f}")
+    print(f"  [OK] ElementLinear output shape: {y.shape}, sparsity: {el.get_sparsity():.4f}")
     
     gate = SparseModalGate(embedding_dim=768)
     x = torch.randn(4, 768)
     gated_x, weights = gate(x)
     assert gated_x.shape == (4, 768)
     assert (weights >= 0).all() and (weights <= 1).all()
-    print(f"  [OK] SparseModalGate通过")
-    print("\n[OK] 所有模型组件测试通过！")
+    print(f"  [OK] SparseModalGate passed")
+    print("\n[OK] All model component tests passed!")

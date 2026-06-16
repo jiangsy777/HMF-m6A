@@ -1,11 +1,3 @@
-"""
-m6A 甲基化预测模型 HMF — Streamlit Web 应用 (Cyber-Scientific Control Panel)
-============================================================================
-基于 main_general.py 的预测逻辑，提供超高颜值交互式 Web 界面。
-严格不修改模型核心逻辑，仅在预处理阶段和后处理作图阶段进行扩展。
-支持全局动态多档位 DPI 导出（300, 600, 900, 1200 DPI）。
-"""
-
 import os
 import sys
 import io
@@ -44,14 +36,14 @@ if PROJECT_ROOT not in sys.path:
 
 from fusion_models import MultimodalFusionModel
 
-# === 常量与配置 ===
+# === Constants and configuration ===
 NUCLEOTIDE_TO_IDX = {'A': 0, 'C': 1, 'G': 2, 'T': 3, 'U': 3, 'N': 4}
 EIIP_DICT = {'A': 0.1260, 'C': 0.1340, 'G': 0.0806, 'T': 0.1335, 'U': 0.1335, 'N': 0.0}
 DPP_DIM = 16
 STRUCTURE_TO_IDX = {'.': 0, '(': 1, ')': 2, 'N': 3}
 SEED = 42
 
-# 科研常用低饱和度色谱
+# Low-saturation color palettes for scientific plots
 NATURE_COLORS = [
     '#2166AC', '#E08214', '#1B7837', '#C0392B', '#7B3294',
     '#8C510A', '#D660BD', '#525252', '#B8960C', '#3288BD',
@@ -60,7 +52,7 @@ NATURE_COLORS = [
 ]
 NATURE_PALETTE_TWO = ['#2166AC', '#C0392B']
 
-# 完整的 29 维理化性质名称列表
+# Complete 29-dim physicochemical feature names
 FEATURE_NAMES_29 = (
     ['EIIP'] +
     [f'NCP_{i}' for i in range(1, 13)] +
@@ -71,7 +63,7 @@ _PLOTLY_FONT = 'Arial, sans-serif'
 _LINE_WIDTH = 0.5
 
 # ==========================================
-# 核心模型处理逻辑 (与之前保持完全一致，不修改)
+# Core model processing logic (unchanged)
 # ==========================================
 
 def fix_all_seeds(seed: int = SEED):
@@ -364,7 +356,7 @@ def run_prediction(df: pd.DataFrame, text_col: str, model, classifiers, major_mo
 
 
 # ==========================================
-# 高级可视化模块 (Plotly & Matplotlib)
+# Advanced visualization module (Plotly & Matplotlib)
 # ==========================================
 
 def _apply_nature_layout(fig, width=950, height=550):
@@ -425,7 +417,7 @@ def _setup_mpl():
         'savefig.pad_inches': 0.1,
     })
 
-# --- 图 1：基序分布帕累托图 (降序排序) ---
+# ---  1：Motif () ---
 def fig_motif_distribution(result_df: pd.DataFrame):
     motif_counts = result_df['motif_group'].value_counts().sort_values(ascending=False)
     total = motif_counts.sum()
@@ -492,7 +484,7 @@ def _save_mpl_motif_distribution(result_df, save_dir, name_base, dpi=300):
     fig.savefig(os.path.join(save_dir, f"{name_base}.png"), dpi=dpi)
     plt.close(fig)
 
-# --- 图 2：DNABERT 降维边际密度散点图 ---
+# --- Fig 2: DNABERT dimensionality reduction marginal density scatter ---
 def _make_joint_pca_plotly(embedding, title, result_df, annotation_col):
     scaler = StandardScaler()
     X_pca = PCA(n_components=2).fit_transform(scaler.fit_transform(embedding))
@@ -558,7 +550,7 @@ def _save_mpl_pca_scatter(bert_embeddings, str_array, phy_array, clf_hidden, res
         g.savefig(os.path.join(save_dir, f"{name_base}_{suffix}.png"), dpi=dpi)
         plt.close(g.fig)
 
-# --- 显著性检验工具函数 ---
+# --- Statistical significance test utilities ---
 def _auto_significance_test(group1, group2):
     from scipy import stats as sp_stats
     n1, n2 = len(group1), len(group2)
@@ -599,7 +591,7 @@ def _sig_annotation(pval):
     else:
         return 'ns'
 
-# --- 图 3a: MFE 分布图 ---
+# --- Fig 3a: MFE distribution ---
 def fig_mfe_violin(result_df: pd.DataFrame):
     m6a_mfe = result_df.loc[result_df['m6A_pred'] == 1, 'MFE'].values
     non_m6a_mfe = result_df.loc[result_df['m6A_pred'] == 0, 'MFE'].values
@@ -675,7 +667,7 @@ def _save_mpl_mfe_violin(result_df, save_dir, name_base, dpi=300):
     fig.savefig(os.path.join(save_dir, f"{name_base}.png"), dpi=dpi)
     plt.close(fig)
 
-# --- 图 3b: 29 维度理化性质原始箱线图 ---
+# --- Fig 3b: 29-dim physicochemical boxplot ---
 def fig_phy_boxplot(phy_array: np.ndarray, result_df: pd.DataFrame):
     m6a_mask = result_df['m6A_pred'].values == 1
     non_m6a_mask = result_df['m6A_pred'].values == 0
@@ -768,7 +760,7 @@ def _save_mpl_phy_boxplot(phy_array, result_df, save_dir, name_base, dpi=300):
     fig.savefig(os.path.join(save_dir, f"{name_base}.png"), dpi=dpi)
     plt.close(fig)
 
-# --- 图 5: 基序 & 标签双向交叉聚类丰度热图 ---
+# ---  5: Motif & labels ---
 def _save_mpl_clustermap(result_df, save_dir, name_base, annotation_col=None, dpi=300):
     _setup_mpl()
     group_col = annotation_col if annotation_col and annotation_col in result_df.columns else 'm6A_pred'
@@ -802,7 +794,7 @@ def fig_clustermap_plotly(result_df, annotation_col=None):
     fig.update_layout(title="Motif-Group Enrichment Heatmap Profiling")
     return _apply_nature_layout(fig, 850, 600)
 
-# --- 图 6: 基序-29维理化性质全维度关联热图 ---
+# ---  6: Motif-29 ---
 def fig_motif_phy_heatmap_plotly(phy_array, result_df):
     motifs = sorted(result_df['motif_group'].unique())
     matrix = np.zeros((len(motifs), 29))
@@ -851,12 +843,12 @@ def save_fig_to_file(fig, save_dir: str, name_base: str, mpl_func=None, mpl_args
         except: pass
 
 # ==========================================
-# UI 渲染层 (Streamlit)
+# UI rendering layer (Streamlit)
 # ==========================================
 def main():
     st.set_page_config(page_title="HMF-m6A", page_icon="🧬", layout="wide")
 
-    # CSS 强力注入控制台赛博美学
+    # CSS injection for console aesthetic
     st.markdown("""
     <style>
     .main .block-container { padding-top: 1.5rem; padding-bottom: 3rem; }
@@ -1127,7 +1119,7 @@ def _render_results_page():
     
     st.markdown("---")
     
-    # 【新增点】高颜值 DPI 动态选择器栏
+    # 【New】DPI dynamic selector bar
     c_space, c_dpi = st.columns([3, 1])
     with c_dpi:
         dpi_choice = st.selectbox("🎯 Export Figures Resolution (DPI)", [300, 600, 900, 1200], index=0, help="Dynamically adjust resolution parameter for exported PNG figures.")
@@ -1135,27 +1127,27 @@ def _render_results_page():
     st.subheader("📈 Computational Bio-Visualization Decks")
     tab1, tab2, tab3, tab4 = st.tabs(["1. Motif Distribution Analysis", "2. High-Dim Space PCA Reduction", "3. Cross-talk Enrichment Clustermap", "4. Multi-modal Structural Profiles"])
 
-    # === Tab 1: 基序分布 ===
+    # === Tab 1: Motif ===
     with tab1:
         st.markdown("#### Fig 1: Motif Group Distribution (Sorted Descending Pareto Chart)")
         fig1 = fig_motif_distribution(result_df)
         st.plotly_chart(fig1, use_container_width=True)
-        # 将全局选择的 DPI 传入保存函数中
+        # Pass global DPI selection to save function
         save_fig_to_file(fig1, output_dir, "fig1_motif_distribution", _save_mpl_motif_distribution, (result_df,), dpi=dpi_choice)
         _dl_btns(output_dir, "fig1_motif_distribution", f"fig1_{idx}")
 
-    # === Tab 2: 降维空间图（彻底解耦，每张图均配备独立按钮） ===
+    # === Tab 2: Dimensionality reduction (decoupled, each with independent buttons) ===
     with tab2:
         st.markdown("#### Fig 2: Latent Embeddings Joint Mapping with Marginal Density Projections")
         fig2_bert, fig2_str, fig2_phy, fig2_clf = fig_pca_scatter(bert_embeddings, str_array, phy_array, clf_hidden, result_df, annotation_col)
         
-        # 触发全套图片的后台高级 Matplotlib 引擎渲染保存
+        # Trigger backend Matplotlib rendering and save
         try:
             _save_mpl_pca_scatter(bert_embeddings, str_array, phy_array, clf_hidden, result_df, output_dir, "fig2_pca", annotation_col, dpi=dpi_choice)
         except Exception:
             pass
         
-        # 逐张图表完美平铺展现并分配精准的下载按钮
+        # Display charts with dedicated download buttons
         st.markdown("**Fig 2a: DNABERT Sequence Space**")
         st.plotly_chart(fig2_bert, use_container_width=True)
         _dl_btns(output_dir, "fig2_pca_bert", f"pca_bert_{idx}")
@@ -1172,7 +1164,7 @@ def _render_results_page():
         st.plotly_chart(fig2_clf, use_container_width=True)
         _dl_btns(output_dir, "fig2_pca_clf", f"pca_clf_{idx}")
 
-    # === Tab 3: 交叉热图 ===
+    # === Tab 3: Cross-heatmap ===
     with tab3:
         st.markdown("#### Fig 3: Motif vs Sample Group Dual Hierarchical Clustermap Matrix")
         fig_hm = fig_clustermap_plotly(result_df, annotation_col)
@@ -1184,7 +1176,7 @@ def _render_results_page():
             pass
         _dl_btns(output_dir, "fig3_motif_clustermap", f"fig3_{idx}")
 
-    # === Tab 4: 理化性质与二级结构结构特征面板 ===
+    # === Tab 4: Physicochemical and structural profiles ===
     with tab4:
         st.markdown("#### Fig 4a: RNA Thermodynamic Secondary Structural Stability (MFE Distribution Profile)")
         fig4a = fig_mfe_violin(result_df)
@@ -1209,7 +1201,7 @@ def _render_results_page():
         _dl_btns(output_dir, "fig4c_motif_phy_heatmap", f"fig4c_{idx}")
 
 def _dl_btns(out_dir, base, unique_key):
-    """通用极简科研风格多格式下载网格按钮组"""
+    """Multi-format download button group"""
     c1, c2 = st.columns(2)
     with c1:
         p_svg = os.path.join(out_dir, f"{base}.svg")

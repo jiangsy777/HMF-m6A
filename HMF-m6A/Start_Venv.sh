@@ -1,7 +1,6 @@
-#!/bin/bash
 # ============================================================
-#  HMF-m6A  m6A Methylation Predictor - Smart Launcher
-#  Features: Auto-detect environment, check packages, auto-install/update
+#  HMF-m6A  m6A Methylation Predictor-Smart Launcher
+#  Features: Auto-detect environment, check packages, auto-install or update
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

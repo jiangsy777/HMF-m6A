@@ -1,13 +1,3 @@
-"""
-对 test_motif_results 独立验证集:
-1. 提取 DNABERT3 原始嵌入 (768-dim F_bert) 和 Motif Classifier 全连接层向量 (128-dim)
-2. 分别做 t-SNE / PCA 降维至 2D, min-max 0-1 标准化
-3. 绘制散点图 (正负样本不同颜色), 计算聚类/分类指标
-4. 自动选择最能体现 motif classifier 优势的指标标注在图中
-5. 保存作图数据和图片
-不修改任何现有文件.
-"""
-
 import os
 import json
 import random
@@ -360,11 +350,11 @@ def plot_single_scatter(coords_2d, labels, metrics_dict, highlight_metric,
     neg_mask = labels == 0
     pos_mask = labels == 1
 
-    ax.scatter(coords_2d[neg_mask, 0], coords_2d[neg_mask, 1],
-               c=COLOR_NEG, s=MARKER_SIZE, alpha=ALPHA, label='Negative',
-               edgecolors='none', rasterized=True)
     ax.scatter(coords_2d[pos_mask, 0], coords_2d[pos_mask, 1],
                c=COLOR_POS, s=MARKER_SIZE, alpha=ALPHA, label='Positive',
+               edgecolors='none', rasterized=True)
+    ax.scatter(coords_2d[neg_mask, 0], coords_2d[neg_mask, 1],
+               c=COLOR_NEG, s=MARKER_SIZE, alpha=ALPHA, label='Negative',
                edgecolors='none', rasterized=True)
 
     ax.set_xlabel(xlabel, fontsize=14)
@@ -409,11 +399,11 @@ def plot_combined_2x2(coords_dict, labels, metrics_dict, highlight_metric, save_
         coords = coords_dict[key]
         m = metrics_dict[key]
 
-        ax.scatter(coords[neg_mask, 0], coords[neg_mask, 1],
-                   c=COLOR_NEG, s=MARKER_SIZE, alpha=ALPHA, label='Negative',
-                   edgecolors='none', rasterized=True)
         ax.scatter(coords[pos_mask, 0], coords[pos_mask, 1],
                    c=COLOR_POS, s=MARKER_SIZE, alpha=ALPHA, label='Positive',
+                   edgecolors='none', rasterized=True)
+        ax.scatter(coords[neg_mask, 0], coords[neg_mask, 1],
+                   c=COLOR_NEG, s=MARKER_SIZE, alpha=ALPHA, label='Negative',
                    edgecolors='none', rasterized=True)
 
         ax.set_xlabel(xlabel, fontsize=13)

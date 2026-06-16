@@ -1,9 +1,3 @@
-"""
-对独立验证集 test_motif_results 进行预测
-步骤1: 用融合模型提取1536维特征
-步骤2: 用基序分类器做预测，计算混淆矩阵、Accuracy、F1等
-"""
-
 import os
 import json
 import numpy as np
@@ -268,7 +262,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
 
-    # ---- 1. 加载融合模型 ----
+    # ---- 1.  ----
     print("\n[1] Loading fusion model...")
     checkpoint = torch.load(
         "./checkpoints/multimodal_fusion_trunk.pt",
@@ -297,7 +291,7 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained("./DNABERT3")
 
-    # ---- 2. 加载路由映射和基序分类器 ----
+    # ---- 2. Routing mapMotif ----
     print("\n[2] Loading motif classifiers...")
     with open("./classifiers/routing_map.json", 'r') as f:
         routing_info = json.load(f)
@@ -317,7 +311,7 @@ def main():
         classifiers[motif_name] = clf
     print(f"  Loaded {len(classifiers)} classifiers")
 
-    # ---- 3. 基序名映射 ----
+    # ---- 3. Motif ----
     file_to_motif = {
         'AAACA': 'AAACA', 'AAACC': 'AAACC', 'AAACT': 'AAACT',
         'AGACA': 'AGACA', 'AGACC': 'AGACC', 'AGACT': 'AGACT',
@@ -328,7 +322,7 @@ def main():
         'other': 'others'
     }
 
-    # ---- 4. 逐组预测 ----
+    # ---- 4. Predicting ----
     print("\n[3] Predicting on independent test set...")
     test_dir = "./test_motif_results"
     all_results = []
@@ -397,7 +391,7 @@ def main():
         overall_preds.extend(results['preds'])
         overall_probs.extend(results['probs'])
 
-    # ---- 5. 汇总 ----
+    # ---- 5. Summary ----
     print(f"\n{'='*70}")
     print("  OVERALL RESULTS ON INDEPENDENT TEST SET")
     print(f"{'='*70}")

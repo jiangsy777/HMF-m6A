@@ -1,10 +1,3 @@
-"""
-HMF 基序专属分类器训练脚本
-遍历各基序分组，为每组训练独立的 MLP 分类器
-架构: 1536 -> 512 -> 128 -> 1 (sigmoid)
-指标: AUC, Early Stopping
-"""
-
 import os
 import json
 import numpy as np
@@ -193,62 +186,62 @@ def main():
     os.makedirs(config.CLASSIFIERS_DIR, exist_ok=True)
 
     print("=" * 70)
-    print("  HMF 基序专属分类器训练")
-    print("  架构: 1536 -> 512 -> 128 -> 1 (sigmoid)")
+    print("  HMF Motif-specific classifier")
+    print("  Architecture: 1536 -> 512 -> 128 -> 1 (sigmoid)")
     print("=" * 70)
-    print(f"设备: {config.DEVICE}")
+    print(f"Device: {config.DEVICE}")
 
-    # ---- 1. 加载特征 ----
-    print("\n[1] 加载特征文件...")
+    # ---- 1. Load features ----
+    print("\n[1] Features file...")
     if not os.path.exists(config.FEATURES_PATH):
-        print(f"错误: 特征文件不存在 {config.FEATURES_PATH}")
-        print("请先运行 extract_features_and_group.py")
+        print(f": Features file {config.FEATURES_PATH}")
+        print("Please run extract_features_and_group.py first")
         return
 
     data = np.load(config.FEATURES_PATH, allow_pickle=True)
     features = data['features']
     labels = data['labels']
     motifs = data['motifs'] if 'motifs' in data else None
-    print(f"  特征矩阵: {features.shape}, 标签: {labels.shape}")
+    print(f"  Feature matrix: {features.shape}, labels: {labels.shape}")
 
-    # ---- 2. 加载特征索引映射 ----
-    print("\n[2] 加载基序分组信息...")
+    # ---- 2. Load feature index map ----
+    print("\n[2] Motif groups...")
     if not os.path.exists(config.FEATURE_INDEX_MAP_PATH):
-        print(f"错误: 索引映射不存在 {config.FEATURE_INDEX_MAP_PATH}")
-        print("请先运行 extract_features_and_group.py")
+        print(f"Error: index map not found {config.FEATURE_INDEX_MAP_PATH}")
+        print("Please run extract_features_and_group.py first")
         return
 
     with open(config.FEATURE_INDEX_MAP_PATH, 'r') as f:
         index_map = json.load(f)
 
     group_names = discover_motif_groups(config.GROUPED_DATA_DIR)
-    print(f"  发现 {len(group_names)} 个基序分组: {group_names}")
+    print(f"  Found {len(group_names)} Motif groups: {group_names}")
 
-    # ---- 3. 训练各基序分类器 ----
-    print("\n[3] 开始训练基序专属分类器...")
+    # ---- 3. Motif ----
+    print("\n[3] Motif-specific classifier...")
     routing_map = {}
     results = {}
 
     for group_name in group_names:
         print(f"\n{'-'*50}")
-        print(f"  基序组: {group_name}")
+        print(f"  Motif: {group_name}")
         print(f"{'-'*50}")
 
         indices = index_map.get(group_name, [])
         if len(indices) == 0:
-            print(f"  跳过: 无样本")
+            print(f"  Skip: no samples")
             continue
 
         group_labels = labels[indices]
         pos_count = int((group_labels == 1).sum())
         neg_count = int((group_labels == 0).sum())
-        print(f"  样本数: {len(indices)} (正:{pos_count} / 负:{neg_count})")
+        print(f"  Samples: {len(indices)} (pos:{pos_count} / neg:{neg_count})")
 
         if pos_count < 2 or neg_count < 2:
-            print(f"  跳过: 正/负样本不足 (需各>=2)")
+            print(f"  : pos/neg (>=2)")
             continue
 
-        # 划分训练/验证 (80/20, stratified)
+        # Train/val split (80/20, stratified)
         indices_arr = np.array(indices)
         pos_indices = indices_arr[group_labels == 1]
         neg_indices = indices_arr[group_labels == 0]
@@ -275,22 +268,22 @@ def main():
         )
 
         if train_loader is None:
-            print(f"  跳过: 训练数据为空")
+            print(f"  Skip: empty training data")
             continue
 
-        # 实例化分类器
+        # Instantiate classifier
         model = MotifClassifier(
             input_dim=config.INPUT_DIM,
             hidden_dims=config.HIDDEN_DIMS,
             dropout=config.DROPOUT
         ).to(config.DEVICE)
 
-        # 训练
+        # 
         best_auc, best_state, best_metrics = train_classifier(
             model, train_loader, val_loader, config, group_name
         )
 
-        # 保存分类器
+        # Save classifier
         safe_name = group_name.replace('/', '_').replace('\\', '_')
         weight_path = os.path.join(config.CLASSIFIERS_DIR, f"classifier_{safe_name}.pt")
         torch.save({
@@ -319,8 +312,8 @@ def main():
 
         print(f"  Best AUC: {best_auc:.4f} Acc: {best_metrics.get('acc', 0.0):.4f} F1: {best_metrics.get('f1', 0.0):.4f}, saved: {weight_path}")
 
-    # ---- 4. 保存路由映射 ----
-    print("\n[4] 保存路由映射...")
+    # ---- 4. Routing map ----
+    print("\n[4] Routing map...")
     with open(config.ROUTING_MAP_PATH, 'w') as f:
         json.dump({
             'routing': routing_map,
@@ -329,15 +322,15 @@ def main():
             'dropout': config.DROPOUT,
             'default_group': 'others' if 'others' in routing_map else None
         }, f, indent=2)
-    print(f"  路由映射已保存: {config.ROUTING_MAP_PATH}")
+    print(f"  Routing map: {config.ROUTING_MAP_PATH}")
 
-    # ---- 5. 汇总 ----
+    # ---- 5. Summary ----
     print("\n" + "=" * 70)
-    print("  基序分类器训练完成!")
-    print(f"  分类器目录: {config.CLASSIFIERS_DIR}")
-    print(f"  路由映射: {config.ROUTING_MAP_PATH}")
-    print(f"\n  各组性能汇总:")
-    print(f"  {'基序':<12} {'样本数':>8} {'正/负':>10} {'AUC':>8} {'ACC':>8} {'F1':>8}")
+    print("  MotifTraining complete!")
+    print(f"  Classifiers dir: {config.CLASSIFIERS_DIR}")
+    print(f"  Routing map: {config.ROUTING_MAP_PATH}")
+    print(f"\n  Per-group performance summary:")
+    print(f"  {'Motif':<12} {'Samples':>8} {'pos/neg':>10} {'AUC':>8} {'ACC':>8} {'F1':>8}")
     print(f"  {'-'*58}")
     for name, info in sorted(results.items()):
         print(f"  {name:<12} {info['n_samples']:>8} {info['pos']:>4}/{info['neg']:<4} "
@@ -347,9 +340,9 @@ def main():
         aucs = [v['auc'] for v in results.values()]
         accs = [v['acc'] for v in results.values()]
         f1s = [v['f1'] for v in results.values()]
-        print(f"\n  平均 AUC: {np.mean(aucs):.4f} (±{np.std(aucs):.4f})")
-        print(f"  平均 ACC: {np.mean(accs):.4f} (±{np.std(accs):.4f})")
-        print(f"  平均 F1:  {np.mean(f1s):.4f} (±{np.std(f1s):.4f})")
+        print(f"\n  Mean AUC: {np.mean(aucs):.4f} (±{np.std(aucs):.4f})")
+        print(f"  Mean ACC: {np.mean(accs):.4f} (±{np.std(accs):.4f})")
+        print(f"  Mean F1:  {np.mean(f1s):.4f} (±{np.std(f1s):.4f})")
     print("=" * 70)
 
 

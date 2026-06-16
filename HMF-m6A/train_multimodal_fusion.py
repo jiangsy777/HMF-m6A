@@ -1,9 +1,3 @@
-"""
-HMF 多模态融合模块训练脚本
-训练 CNN 提取器、稀疏门控机制、重构解码器
-损失 = BCE分类损失 + alpha * MSE重构损失
-"""
-
 import os
 import hashlib
 import numpy as np
