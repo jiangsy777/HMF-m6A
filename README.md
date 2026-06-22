@@ -9,7 +9,7 @@ Please download the complete datasets, models, and codes from Zenodo (https://do
 
 ### 1.1 One-Click Setup (Recommended)
 
-A one-click launcher script is provided. It automatically creates a virtual environment, installs dependencies, and launches the web app.
+A one-click launcher script is provided. It automatically creates a virtual environment, installs dependencies, and launches the web app (Python v3.9.13).
 
 ```bash
 bash Start_Venv.sh
